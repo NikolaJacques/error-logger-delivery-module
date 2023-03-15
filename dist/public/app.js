@@ -1,7 +1,13 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ErrorLogger = void 0;
-exports.ErrorLogger = (() => {
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+export const ErrorLogger = (() => {
     class ErrorReport {
         constructor(message, name, stack, actions, browserVersion, timestamp) {
             this.message = message;
@@ -70,7 +76,7 @@ exports.ErrorLogger = (() => {
             console.log(error);
         }
     };
-    const send = async (error) => {
+    const send = (error) => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const LOGS_URI = url + 'logs';
             let errorRep;
@@ -86,7 +92,7 @@ exports.ErrorLogger = (() => {
                 errorRep = new ErrorReport(message, name, stack, actions, browser, ts);
             }
             try {
-                const data = await fetch(LOGS_URI, {
+                const data = yield fetch(LOGS_URI, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
@@ -94,7 +100,7 @@ exports.ErrorLogger = (() => {
                     },
                     body: JSON.stringify(errorRep)
                 });
-                const parsedData = await data.json();
+                const parsedData = yield data.json();
                 console.log(parsedData.message);
             }
             catch (err) {
@@ -105,12 +111,12 @@ exports.ErrorLogger = (() => {
         catch (err) {
             console.log(err);
         }
-    };
-    const init = async (appId, appSecret) => {
+    });
+    const init = (appId, appSecret) => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const AUTH_URI = url + 'auth/app';
             if (AUTH_URI) {
-                const data = await fetch(AUTH_URI, {
+                const data = yield fetch(AUTH_URI, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -118,7 +124,7 @@ exports.ErrorLogger = (() => {
                         appSecret
                     })
                 });
-                const parsedData = await data.json();
+                const parsedData = yield data.json();
                 if (data.ok) {
                     sessionStorage.setItem('error-log-token', parsedData.token);
                 }
@@ -135,7 +141,7 @@ exports.ErrorLogger = (() => {
             console.log(error);
             window.alert('ErrorLogger authentication failed: check console or contact administrator.');
         }
-    };
+    });
     const trace = (handler) => {
         try {
             return (e) => {

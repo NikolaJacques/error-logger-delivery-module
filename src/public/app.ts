@@ -1,9 +1,10 @@
-import { ErrorReportInterface, AuthResponse, AuthRequest } from 'delivery-backend';
+import { ErrorLogType } from 'intersection';
+import { AuthResponse, AuthRequest } from 'delivery-backend';
 import { ActionType } from 'intersection';
 
 export const ErrorLogger = (() => {
 
-    class ErrorReport implements ErrorReportInterface {
+    class ErrorReport implements ErrorLogType<number> {
         constructor(
             public message: string,
             public name: string,
