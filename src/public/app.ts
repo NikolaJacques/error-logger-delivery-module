@@ -47,6 +47,18 @@ export const ErrorLogger = (() => {
         }
     }
 
+    const delay = (backoffCoefficient:number) => { 
+        try {
+            return new Promise<void>(resolved => {
+                setTimeout(() => {
+                resolved();
+                }, 100 * backoffCoefficient * backoffCoefficient);
+            });
+        } catch(err:any){
+            throw err;
+        }
+    }
+
     const url = 'http://localhost:8080/';
 
     const cache = (error:Error) => {
@@ -74,10 +86,10 @@ export const ErrorLogger = (() => {
         }
     }
 
-    const send = async (error: Error):Promise<void> => {
+    const send = async (error: ErrorLogType<number> | Error):Promise<void> => {
         try {
             const LOGS_URI = url +'logs';
-            let errorRep;
+            let errorRep: ErrorLogType<number> | Error;
             if ('timestamp' in error){
                 errorRep = error;
             } else {
@@ -89,15 +101,22 @@ export const ErrorLogger = (() => {
                 errorRep = new ErrorReport(message, name, stack as string, actions, browser, ts);
             }
             try {
-                const data = await fetch(LOGS_URI, {
+                const fetchData = async () => await fetch(LOGS_URI, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
                     },
-                    body: JSON.stringify(errorRep)
+                    body: JSON.stringify(errorRep as ErrorLogType<number>)
                 });
-                const parsedData = await data.json();
+                let backoffCoefficient = 0;
+                let response = await fetchData();
+                while (response!.status>=400 && backoffCoefficient < 10){
+                    ++backoffCoefficient;
+                    await delay(backoffCoefficient);
+                    response = await fetchData();
+                }
+                const parsedData = await response.json();
                 console.log(parsedData.message);
             }
             catch(err){
@@ -114,7 +133,7 @@ export const ErrorLogger = (() => {
         try {
             const AUTH_URI = url + 'auth/app';
             if (AUTH_URI){
-                const data = await fetch(AUTH_URI, {
+                const fetchData = async () => await fetch(AUTH_URI, {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify({
@@ -122,8 +141,16 @@ export const ErrorLogger = (() => {
                         appSecret
                     } as AuthRequest)
                 })
-                const parsedData: AuthResponse = await data.json();
-                if (data.ok){
+                let backoffCoefficient = 0;
+                let response = await fetchData();
+                console.log(response.status);
+                while (response!.status>=400 && backoffCoefficient < 10){
+                    ++backoffCoefficient;
+                    await delay(backoffCoefficient);
+                    response = await fetchData();
+                }
+                const parsedData: AuthResponse = await response.json();
+                if (response.ok){
                     sessionStorage.setItem('error-log-token', parsedData.token!);
                 } else {
                     throw new Error(parsedData.message);

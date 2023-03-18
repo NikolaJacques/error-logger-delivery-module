@@ -52,6 +52,18 @@ export const ErrorLogger = (() => {
             throw new Error('Couldn\'t retrieve date');
         }
     };
+    const delay = (backoffCoefficient) => {
+        try {
+            return new Promise(resolved => {
+                setTimeout(() => {
+                    resolved();
+                }, 100 * backoffCoefficient * backoffCoefficient);
+            });
+        }
+        catch (err) {
+            throw err;
+        }
+    };
     const url = 'http://localhost:8080/';
     const cache = (error) => {
         try {
@@ -92,15 +104,24 @@ export const ErrorLogger = (() => {
                 errorRep = new ErrorReport(message, name, stack, actions, browser, ts);
             }
             try {
-                const data = yield fetch(LOGS_URI, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
-                    },
-                    body: JSON.stringify(errorRep)
+                const fetchData = () => __awaiter(void 0, void 0, void 0, function* () {
+                    return yield fetch(LOGS_URI, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
+                        },
+                        body: JSON.stringify(errorRep)
+                    });
                 });
-                const parsedData = yield data.json();
+                let backoffCoefficient = 0;
+                let response = yield fetchData();
+                while (response.status >= 400 && backoffCoefficient < 10) {
+                    ++backoffCoefficient;
+                    yield delay(backoffCoefficient);
+                    response = yield fetchData();
+                }
+                const parsedData = yield response.json();
                 console.log(parsedData.message);
             }
             catch (err) {
@@ -116,16 +137,26 @@ export const ErrorLogger = (() => {
         try {
             const AUTH_URI = url + 'auth/app';
             if (AUTH_URI) {
-                const data = yield fetch(AUTH_URI, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        appId,
-                        appSecret
-                    })
+                const fetchData = () => __awaiter(void 0, void 0, void 0, function* () {
+                    return yield fetch(AUTH_URI, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            appId,
+                            appSecret
+                        })
+                    });
                 });
-                const parsedData = yield data.json();
-                if (data.ok) {
+                let backoffCoefficient = 0;
+                let response = yield fetchData();
+                console.log(response.status);
+                while (response.status >= 400 && backoffCoefficient < 10) {
+                    ++backoffCoefficient;
+                    yield delay(backoffCoefficient);
+                    response = yield fetchData();
+                }
+                const parsedData = yield response.json();
+                if (response.ok) {
                     sessionStorage.setItem('error-log-token', parsedData.token);
                 }
                 else {
