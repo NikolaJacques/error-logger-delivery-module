@@ -162,7 +162,6 @@ export const ErrorLogger = (() => {
         }
         catch(error){
             console.log(error);
-            window.alert('ErrorLogger authentication failed: check console or contact administrator.');
         }
     }
 
