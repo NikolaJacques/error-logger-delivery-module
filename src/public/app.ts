@@ -165,7 +165,7 @@ export const ErrorLogger = (() => {
         }
     }
 
-    const trace = (handler:Function) => {
+    const trace = (handler: (e:Event) => void) => {
         try {
             return (e:Event) => {
                 const actions = !sessionStorage.getItem('actions')?[]:JSON.parse(sessionStorage.getItem('actions')!);
