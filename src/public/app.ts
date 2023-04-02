@@ -2,21 +2,19 @@ import { ErrorLogType } from 'intersection';
 import { AuthResponse, AuthRequest } from 'delivery-backend';
 import { ActionType } from 'intersection';
 
-export const ErrorLogger = (() => {
-
-    class ErrorReport implements ErrorLogType<number> {
-        constructor(
-            public message: string,
-            public name: string,
-            public stack: string,
-            public actions: ActionType[],
-            public browserVersion: string,
-            public timestamp: number
-        ){}
-    }
+export class ErrorReport implements ErrorLogType<number> {
+    constructor(
+        public message: string,
+        public name: string,
+        public stack: string,
+        public actions: ActionType[],
+        public browserVersion: string,
+        public timestamp: number
+    ){}
+}
 
     // user agent sniffing (from https://www.seanmcp.com/articles/how-to-get-the-browser-version-in-javascript/)
-    const getBrowser = () => {
+    export const getBrowser = () => {
         try {        
             const { userAgent } = navigator;
             if (userAgent.includes('Firefox/')) {
@@ -37,17 +35,17 @@ export const ErrorLogger = (() => {
     }
   
     // timestamp function
-    const timestamp = ():number => {
+    export const timestamp = ():number => {
         try {
-        const dateStr = (new Date).getTime();
-        return dateStr;
+            const dateStr = (new Date).getTime();
+            return dateStr;
         }
         catch(error){
-        throw new Error('Couldn\'t retrieve date');
+            throw new Error('Couldn\'t retrieve date');
         }
     }
 
-    const delay = (backoffCoefficient:number) => { 
+    export const delay = (backoffCoefficient:number) => { 
         try {
             return new Promise<void>(resolved => {
                 setTimeout(() => {
@@ -61,7 +59,7 @@ export const ErrorLogger = (() => {
 
     const url = 'http://localhost:8080/';
 
-    const cache = (error:Error) => {
+    export const cache = (error:Error) => {
         try {
             const cachedErrors = localStorage.getItem('errorCache')?JSON.parse(localStorage.getItem('errorCache')!):[];
             cachedErrors.push(error);
@@ -72,12 +70,12 @@ export const ErrorLogger = (() => {
         }
     }
 
-    const checkCache = () => {
+    export const checkCache = async (send: (error: ErrorLogType<number> | Error) => Promise<void>) => {
         try {
             const cachedErrors = localStorage.getItem('errorCache')?JSON.parse(localStorage.getItem('errorCache')!):[];
             localStorage.setItem('errorCache', JSON.stringify([]));
             for (let error of cachedErrors){
-                send(error)
+                await send(error)
                     .catch(() => cache(error));
             }
         }
@@ -85,6 +83,8 @@ export const ErrorLogger = (() => {
             console.log(error);
         }
     }
+
+export const ErrorLogger = (() => {   
 
     const send = async (error: ErrorLogType<number> | Error):Promise<void> => {
         try {
@@ -158,7 +158,7 @@ export const ErrorLogger = (() => {
             } else {
                 throw new Error('Auth URL not defined');
             }
-            checkCache();
+            checkCache(send);
         }
         catch(error){
             console.log(error);

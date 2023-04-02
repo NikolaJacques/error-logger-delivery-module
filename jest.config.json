@@ -1,0 +1,10 @@
+{
+    "preset": "ts-jest",
+    "testEnvironment": "jsdom",
+    "testMatch": [
+      "**/?(*.)+(spec).ts"
+    ],
+    "resetMocks": true,
+    "clearMocks": true,
+    "verbose": true
+}

@@ -7,87 +7,88 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
-export const ErrorLogger = (() => {
-    class ErrorReport {
-        constructor(message, name, stack, actions, browserVersion, timestamp) {
-            this.message = message;
-            this.name = name;
-            this.stack = stack;
-            this.actions = actions;
-            this.browserVersion = browserVersion;
-            this.timestamp = timestamp;
+export class ErrorReport {
+    constructor(message, name, stack, actions, browserVersion, timestamp) {
+        this.message = message;
+        this.name = name;
+        this.stack = stack;
+        this.actions = actions;
+        this.browserVersion = browserVersion;
+        this.timestamp = timestamp;
+    }
+}
+// user agent sniffing (from https://www.seanmcp.com/articles/how-to-get-the-browser-version-in-javascript/)
+export const getBrowser = () => {
+    try {
+        const { userAgent } = navigator;
+        if (userAgent.includes('Firefox/')) {
+            return `Firefox v${userAgent.split('Firefox/')[1]}`;
+        }
+        else if (userAgent.includes('Edg/')) {
+            return `Edge v${userAgent.split('Edg/')[1]}`;
+        }
+        else if (userAgent.includes('Chrome/')) {
+            return `Chrome v${userAgent.split('Chrome/')[1].split(' ')[0]}`;
+        }
+        else if (userAgent.includes('Safari/')) {
+            return `Safari v${userAgent.split('Safari/')[1]}`;
+        }
+        else {
+            return 'unknown';
         }
     }
-    // user agent sniffing (from https://www.seanmcp.com/articles/how-to-get-the-browser-version-in-javascript/)
-    const getBrowser = () => {
-        try {
-            const { userAgent } = navigator;
-            if (userAgent.includes('Firefox/')) {
-                return `Firefox v${userAgent.split('Firefox/')[1]}`;
-            }
-            else if (userAgent.includes('Edg/')) {
-                return `Edge v${userAgent.split('Edg/')[1]}`;
-            }
-            else if (userAgent.includes('Chrome/')) {
-                return `Chrome v${userAgent.split('Chrome/')[1].split(' ')[0]}`;
-            }
-            else if (userAgent.includes('Safari/')) {
-                return `Safari v${userAgent.split('Safari/')[1]}`;
-            }
-            else {
-                return 'unknown';
-            }
+    catch (error) {
+        throw new Error('Couldn\'t retrieve browser');
+    }
+};
+// timestamp function
+export const timestamp = () => {
+    try {
+        const dateStr = (new Date).getTime();
+        return dateStr;
+    }
+    catch (error) {
+        throw new Error('Couldn\'t retrieve date');
+    }
+};
+export const delay = (backoffCoefficient) => {
+    try {
+        return new Promise(resolved => {
+            setTimeout(() => {
+                resolved();
+            }, 100 * backoffCoefficient * backoffCoefficient);
+        });
+    }
+    catch (err) {
+        throw err;
+    }
+};
+const url = 'http://localhost:8080/';
+export const cache = (error) => {
+    try {
+        const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
+        console.log(localStorage);
+        cachedErrors.push(error);
+        localStorage.setItem('errorCache', JSON.stringify(cachedErrors));
+    }
+    catch (err) {
+        console.log(err);
+    }
+};
+export const checkCache = (send) => {
+    try {
+        const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
+        localStorage.setItem('errorCache', JSON.stringify([]));
+        for (let error of cachedErrors) {
+            send(error)
+                .catch(() => cache(error));
         }
-        catch (error) {
-            throw new Error('Couldn\'t retrieve browser');
-        }
-    };
-    // timestamp function
-    const timestamp = () => {
-        try {
-            const dateStr = (new Date).getTime();
-            return dateStr;
-        }
-        catch (error) {
-            throw new Error('Couldn\'t retrieve date');
-        }
-    };
-    const delay = (backoffCoefficient) => {
-        try {
-            return new Promise(resolved => {
-                setTimeout(() => {
-                    resolved();
-                }, 100 * backoffCoefficient * backoffCoefficient);
-            });
-        }
-        catch (err) {
-            throw err;
-        }
-    };
-    const url = 'http://localhost:8080/';
-    const cache = (error) => {
-        try {
-            const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
-            cachedErrors.push(error);
-            localStorage.setItem('errorCache', JSON.stringify(cachedErrors));
-        }
-        catch (err) {
-            console.log(err);
-        }
-    };
-    const checkCache = () => {
-        try {
-            const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
-            localStorage.setItem('errorCache', JSON.stringify([]));
-            for (let error of cachedErrors) {
-                send(error)
-                    .catch(() => cache(error));
-            }
-        }
-        catch (error) {
-            console.log(error);
-        }
-    };
+    }
+    catch (error) {
+        console.log(error);
+    }
+};
+export const ErrorLogger = (() => {
     const send = (error) => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const LOGS_URI = url + 'logs';
@@ -166,7 +167,7 @@ export const ErrorLogger = (() => {
             else {
                 throw new Error('Auth URL not defined');
             }
-            checkCache();
+            checkCache(send);
         }
         catch (error) {
             console.log(error);
