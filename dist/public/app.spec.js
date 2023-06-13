@@ -1,3 +1,4 @@
+"use strict";
 /* import { ErrorLogger, ErrorReport, getBrowser, timestamp, delay, cache, checkCache, fetchDataInit, fetchDataSend, backOff } from './app';
 import { ActionType } from 'intersection';
 
@@ -146,7 +147,7 @@ describe('ErrorLogger: Helper functions', () => {
             ];
 
             beforeEach(() => {
-                localStorage.setItem('errorCache', JSON.stringify(cachedErrors));  
+                localStorage.setItem('errorCache', JSON.stringify(cachedErrors));
             });
 
             afterEach(() => {
@@ -288,4 +289,4 @@ describe('ErrorLogger: Helper functions', () => {
 
     });
 
-}); */
+}); */ 

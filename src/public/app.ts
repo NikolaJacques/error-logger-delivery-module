@@ -45,20 +45,6 @@ export class ErrorReport implements ErrorLogType<number> {
         }
     }
 
-    export const delay = (backoffCoefficient:number) => { 
-        try {
-            return new Promise<void>(resolved => {
-                setTimeout(() => {
-                resolved();
-                }, 100 * backoffCoefficient * backoffCoefficient);
-            });
-        } catch(err:any){
-            throw err;
-        }
-    }
-
-    const url = 'http://localhost:8080/';
-
     export const cache = (error:Error) => {
         try {
             const cachedErrors = localStorage.getItem('errorCache')?JSON.parse(localStorage.getItem('errorCache')!):[];
@@ -70,26 +56,71 @@ export class ErrorReport implements ErrorLogType<number> {
         }
     }
 
-    export const checkCache = async (send: (error: ErrorLogType<number> | Error) => Promise<void>) => {
+    export const delay = (backoffCoefficient:number) => {
         try {
-            const cachedErrors = localStorage.getItem('errorCache')?JSON.parse(localStorage.getItem('errorCache')!):[];
-            localStorage.setItem('errorCache', JSON.stringify([]));
-            for (let error of cachedErrors){
-                await send(error)
-                    .catch(() => cache(error));
-            }
-        }
-        catch(error){
-            console.log(error);
+            return new Promise<void>(resolved => {
+                setTimeout(() => {
+                resolved();
+                }, 100 * backoffCoefficient * backoffCoefficient);
+            });
+        } catch(err:any){
+            throw err;
         }
     }
 
-export const ErrorLogger = (() => {   
+    export const backOff = async (callback: () => Promise<Response>) => {
+        try {
+            let backoffCoefficient = 0;
+            let response = await callback();
+            const result = await (async () => {
+                while (response!.status>401 && backoffCoefficient < 10){
+                    ++backoffCoefficient;
+                    await delay(backoffCoefficient);
+                    response = await callback();
+                }
+                return response;
+            })();
+            return result;
+        } catch(err) {
+            throw err;
+        }
+    }
+
+    export const fetchDataSend = async (url: string, errorRep: ErrorLogType<number>) => {
+        try{
+            return await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
+                },
+                body: JSON.stringify(errorRep)
+            })
+        } catch(err){
+            throw err;
+        }
+    };
+
+    export const fetchDataInit = async (url: string, requestBody: Partial<AuthRequest>) => {
+        try{
+            return await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(requestBody)
+            })
+        } catch(err){
+            throw err;
+        }
+    };
+
+export const ErrorLogger = (endpoint_url:string) => {
+    
+    const url = endpoint_url;
 
     const send = async (error: ErrorLogType<number> | Error):Promise<void> => {
         try {
             const LOGS_URI = url +'logs';
-            let errorRep: ErrorLogType<number> | Error;
+            let errorRep: ErrorLogType<number>;
             if ('timestamp' in error){
                 errorRep = error;
             } else {
@@ -101,21 +132,8 @@ export const ErrorLogger = (() => {
                 errorRep = new ErrorReport(message, name, stack as string, actions, browser, ts);
             }
             try {
-                const fetchData = async () => await fetch(LOGS_URI, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
-                    },
-                    body: JSON.stringify(errorRep as ErrorLogType<number>)
-                });
-                let backoffCoefficient = 0;
-                let response = await fetchData();
-                while (response!.status>=400 && backoffCoefficient < 10){
-                    ++backoffCoefficient;
-                    await delay(backoffCoefficient);
-                    response = await fetchData();
-                }
+                const response = await backOff(() => fetchDataSend(LOGS_URI, errorRep));
+                if (!response.ok) throw new Error('Unable to send error');
                 const parsedData = await response.json();
                 console.log(parsedData.message);
             }
@@ -129,36 +147,31 @@ export const ErrorLogger = (() => {
         }
     }
 
-    const init = async (appId:string, appSecret: string):Promise<void> => {
+    const checkCache = async ():Promise<void> => {
+        try {
+            const cachedErrors = localStorage.getItem('errorCache')?JSON.parse(localStorage.getItem('errorCache')!):[];
+            localStorage.setItem('errorCache', JSON.stringify([]));
+            for (let error of cachedErrors){
+                send(error);
+            }
+        }
+        catch(error){
+            console.log(error);
+        }
+    }
+
+    const init = async (appId:string):Promise<void> => {
         try {
             const AUTH_URI = url + 'auth/app';
-            if (AUTH_URI){
-                const fetchData = async () => await fetch(AUTH_URI, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        appId,
-                        appSecret
-                    } as AuthRequest)
-                })
-                let backoffCoefficient = 0;
-                let response = await fetchData();
-                console.log(response.status);
-                while (response!.status>=400 && backoffCoefficient < 10){
-                    ++backoffCoefficient;
-                    await delay(backoffCoefficient);
-                    response = await fetchData();
-                }
-                const parsedData: AuthResponse = await response.json();
-                if (response.ok){
-                    sessionStorage.setItem('error-log-token', parsedData.token!);
-                } else {
-                    throw new Error(parsedData.message);
-                }
+            const requestBody: Partial<AuthRequest> = {appId};
+            const response = await backOff(() => fetchDataInit(AUTH_URI, requestBody));
+            const parsedData: AuthResponse = await response.json();
+            if (response.ok){
+                sessionStorage.setItem('error-log-token', parsedData.token!);
             } else {
-                throw new Error('Auth URL not defined');
+                throw new Error(parsedData.message);
             }
-            checkCache(send);
+            checkCache();
         }
         catch(error){
             console.log(error);
@@ -210,4 +223,4 @@ export const ErrorLogger = (() => {
         trace,
         traceAll
     }
-})();
+};

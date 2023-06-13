@@ -1,13 +1,7 @@
-var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
-    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
-    return new (P || (P = Promise))(function (resolve, reject) {
-        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
-        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
-        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
-        step((generator = generator.apply(thisArg, _arguments || [])).next());
-    });
-};
-export class ErrorReport {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ErrorLogger = exports.fetchDataInit = exports.fetchDataSend = exports.backOff = exports.delay = exports.cache = exports.timestamp = exports.getBrowser = exports.ErrorReport = void 0;
+class ErrorReport {
     constructor(message, name, stack, actions, browserVersion, timestamp) {
         this.message = message;
         this.name = name;
@@ -17,8 +11,9 @@ export class ErrorReport {
         this.timestamp = timestamp;
     }
 }
+exports.ErrorReport = ErrorReport;
 // user agent sniffing (from https://www.seanmcp.com/articles/how-to-get-the-browser-version-in-javascript/)
-export const getBrowser = () => {
+const getBrowser = () => {
     try {
         const { userAgent } = navigator;
         if (userAgent.includes('Firefox/')) {
@@ -41,8 +36,9 @@ export const getBrowser = () => {
         throw new Error('Couldn\'t retrieve browser');
     }
 };
+exports.getBrowser = getBrowser;
 // timestamp function
-export const timestamp = () => {
+const timestamp = () => {
     try {
         const dateStr = (new Date).getTime();
         return dateStr;
@@ -51,7 +47,19 @@ export const timestamp = () => {
         throw new Error('Couldn\'t retrieve date');
     }
 };
-export const delay = (backoffCoefficient) => {
+exports.timestamp = timestamp;
+const cache = (error) => {
+    try {
+        const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
+        cachedErrors.push(error);
+        localStorage.setItem('errorCache', JSON.stringify(cachedErrors));
+    }
+    catch (err) {
+        console.log(err);
+    }
+};
+exports.cache = cache;
+const delay = (backoffCoefficient) => {
     try {
         return new Promise(resolved => {
             setTimeout(() => {
@@ -63,33 +71,58 @@ export const delay = (backoffCoefficient) => {
         throw err;
     }
 };
-const url = 'http://localhost:8080/';
-export const cache = (error) => {
+exports.delay = delay;
+const backOff = async (callback) => {
     try {
-        const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
-        console.log(localStorage);
-        cachedErrors.push(error);
-        localStorage.setItem('errorCache', JSON.stringify(cachedErrors));
+        let backoffCoefficient = 0;
+        let response = await callback();
+        const result = await (async () => {
+            while (response.status > 401 && backoffCoefficient < 10) {
+                ++backoffCoefficient;
+                await (0, exports.delay)(backoffCoefficient);
+                response = await callback();
+            }
+            return response;
+        })();
+        return result;
     }
     catch (err) {
-        console.log(err);
+        throw err;
     }
 };
-export const checkCache = (send) => {
+exports.backOff = backOff;
+const fetchDataSend = async (url, errorRep) => {
     try {
-        const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
-        localStorage.setItem('errorCache', JSON.stringify([]));
-        for (let error of cachedErrors) {
-            send(error)
-                .catch(() => cache(error));
-        }
+        return await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
+            },
+            body: JSON.stringify(errorRep)
+        });
     }
-    catch (error) {
-        console.log(error);
+    catch (err) {
+        throw err;
     }
 };
-export const ErrorLogger = (() => {
-    const send = (error) => __awaiter(void 0, void 0, void 0, function* () {
+exports.fetchDataSend = fetchDataSend;
+const fetchDataInit = async (url, requestBody) => {
+    try {
+        return await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
+    }
+    catch (err) {
+        throw err;
+    }
+};
+exports.fetchDataInit = fetchDataInit;
+const ErrorLogger = (endpoint_url) => {
+    const url = endpoint_url;
+    const send = async (error) => {
         try {
             const LOGS_URI = url + 'logs';
             let errorRep;
@@ -97,82 +130,59 @@ export const ErrorLogger = (() => {
                 errorRep = error;
             }
             else {
-                const browser = getBrowser();
-                const ts = timestamp();
+                const browser = (0, exports.getBrowser)();
+                const ts = (0, exports.timestamp)();
                 const actions = sessionStorage.getItem('actions') ? JSON.parse(sessionStorage.getItem('actions')) : [];
                 sessionStorage.setItem('actions', JSON.stringify([]));
                 const { message, name, stack } = error;
                 errorRep = new ErrorReport(message, name, stack, actions, browser, ts);
             }
             try {
-                const fetchData = () => __awaiter(void 0, void 0, void 0, function* () {
-                    return yield fetch(LOGS_URI, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': 'Bearer ' + sessionStorage.getItem('error-log-token'),
-                        },
-                        body: JSON.stringify(errorRep)
-                    });
-                });
-                let backoffCoefficient = 0;
-                let response = yield fetchData();
-                while (response.status >= 400 && backoffCoefficient < 10) {
-                    ++backoffCoefficient;
-                    yield delay(backoffCoefficient);
-                    response = yield fetchData();
-                }
-                const parsedData = yield response.json();
+                const response = await (0, exports.backOff)(() => (0, exports.fetchDataSend)(LOGS_URI, errorRep));
+                if (!response.ok)
+                    throw new Error('Unable to send error');
+                const parsedData = await response.json();
                 console.log(parsedData.message);
             }
             catch (err) {
-                cache(errorRep);
+                (0, exports.cache)(errorRep);
                 throw err;
             }
         }
         catch (err) {
             console.log(err);
         }
-    });
-    const init = (appId, appSecret) => __awaiter(void 0, void 0, void 0, function* () {
+    };
+    const checkCache = async () => {
         try {
-            const AUTH_URI = url + 'auth/app';
-            if (AUTH_URI) {
-                const fetchData = () => __awaiter(void 0, void 0, void 0, function* () {
-                    return yield fetch(AUTH_URI, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            appId,
-                            appSecret
-                        })
-                    });
-                });
-                let backoffCoefficient = 0;
-                let response = yield fetchData();
-                console.log(response.status);
-                while (response.status >= 400 && backoffCoefficient < 10) {
-                    ++backoffCoefficient;
-                    yield delay(backoffCoefficient);
-                    response = yield fetchData();
-                }
-                const parsedData = yield response.json();
-                if (response.ok) {
-                    sessionStorage.setItem('error-log-token', parsedData.token);
-                }
-                else {
-                    throw new Error(parsedData.message);
-                }
+            const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
+            localStorage.setItem('errorCache', JSON.stringify([]));
+            for (let error of cachedErrors) {
+                send(error);
             }
-            else {
-                throw new Error('Auth URL not defined');
-            }
-            checkCache(send);
         }
         catch (error) {
             console.log(error);
         }
-    });
+    };
+    const init = async (appId) => {
+        try {
+            const AUTH_URI = url + 'auth/app';
+            const requestBody = { appId };
+            const response = await (0, exports.backOff)(() => (0, exports.fetchDataInit)(AUTH_URI, requestBody));
+            const parsedData = await response.json();
+            if (response.ok) {
+                sessionStorage.setItem('error-log-token', parsedData.token);
+            }
+            else {
+                throw new Error(parsedData.message);
+            }
+            checkCache();
+        }
+        catch (error) {
+            console.log(error);
+        }
+    };
     const trace = (handler) => {
         try {
             return (e) => {
@@ -216,4 +226,5 @@ export const ErrorLogger = (() => {
         trace,
         traceAll
     };
-})();
+};
+exports.ErrorLogger = ErrorLogger;
