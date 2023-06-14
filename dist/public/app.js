@@ -1,7 +1,13 @@
-"use strict";
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ErrorLogger = exports.fetchDataInit = exports.fetchDataSend = exports.backOff = exports.delay = exports.cache = exports.timestamp = exports.getBrowser = exports.ErrorReport = void 0;
-class ErrorReport {
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+export class ErrorReport {
     constructor(message, name, stack, actions, browserVersion, timestamp) {
         this.message = message;
         this.name = name;
@@ -11,9 +17,8 @@ class ErrorReport {
         this.timestamp = timestamp;
     }
 }
-exports.ErrorReport = ErrorReport;
 // user agent sniffing (from https://www.seanmcp.com/articles/how-to-get-the-browser-version-in-javascript/)
-const getBrowser = () => {
+export const getBrowser = () => {
     try {
         const { userAgent } = navigator;
         if (userAgent.includes('Firefox/')) {
@@ -36,9 +41,8 @@ const getBrowser = () => {
         throw new Error('Couldn\'t retrieve browser');
     }
 };
-exports.getBrowser = getBrowser;
 // timestamp function
-const timestamp = () => {
+export const timestamp = () => {
     try {
         const dateStr = (new Date).getTime();
         return dateStr;
@@ -47,8 +51,7 @@ const timestamp = () => {
         throw new Error('Couldn\'t retrieve date');
     }
 };
-exports.timestamp = timestamp;
-const cache = (error) => {
+export const cache = (error) => {
     try {
         const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
         cachedErrors.push(error);
@@ -58,8 +61,7 @@ const cache = (error) => {
         console.log(err);
     }
 };
-exports.cache = cache;
-const delay = (backoffCoefficient) => {
+export const delay = (backoffCoefficient) => {
     try {
         return new Promise(resolved => {
             setTimeout(() => {
@@ -71,29 +73,27 @@ const delay = (backoffCoefficient) => {
         throw err;
     }
 };
-exports.delay = delay;
-const backOff = async (callback) => {
+export const backOff = (callback) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         let backoffCoefficient = 0;
-        let response = await callback();
-        const result = await (async () => {
+        let response = yield callback();
+        const result = yield (() => __awaiter(void 0, void 0, void 0, function* () {
             while (response.status > 401 && backoffCoefficient < 10) {
                 ++backoffCoefficient;
-                await (0, exports.delay)(backoffCoefficient);
-                response = await callback();
+                yield delay(backoffCoefficient);
+                response = yield callback();
             }
             return response;
-        })();
+        }))();
         return result;
     }
     catch (err) {
         throw err;
     }
-};
-exports.backOff = backOff;
-const fetchDataSend = async (url, errorRep) => {
+});
+export const fetchDataSend = (url, errorRep) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        return await fetch(url, {
+        return yield fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -105,11 +105,10 @@ const fetchDataSend = async (url, errorRep) => {
     catch (err) {
         throw err;
     }
-};
-exports.fetchDataSend = fetchDataSend;
-const fetchDataInit = async (url, requestBody) => {
+});
+export const fetchDataInit = (url, requestBody) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        return await fetch(url, {
+        return yield fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestBody)
@@ -118,11 +117,10 @@ const fetchDataInit = async (url, requestBody) => {
     catch (err) {
         throw err;
     }
-};
-exports.fetchDataInit = fetchDataInit;
-const ErrorLogger = (endpoint_url) => {
+});
+export const ErrorLogger = (endpoint_url) => {
     const url = endpoint_url;
-    const send = async (error) => {
+    const send = (error) => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const LOGS_URI = url + 'logs';
             let errorRep;
@@ -130,30 +128,30 @@ const ErrorLogger = (endpoint_url) => {
                 errorRep = error;
             }
             else {
-                const browser = (0, exports.getBrowser)();
-                const ts = (0, exports.timestamp)();
+                const browser = getBrowser();
+                const ts = timestamp();
                 const actions = sessionStorage.getItem('actions') ? JSON.parse(sessionStorage.getItem('actions')) : [];
                 sessionStorage.setItem('actions', JSON.stringify([]));
                 const { message, name, stack } = error;
                 errorRep = new ErrorReport(message, name, stack, actions, browser, ts);
             }
             try {
-                const response = await (0, exports.backOff)(() => (0, exports.fetchDataSend)(LOGS_URI, errorRep));
+                const response = yield backOff(() => fetchDataSend(LOGS_URI, errorRep));
                 if (!response.ok)
                     throw new Error('Unable to send error');
-                const parsedData = await response.json();
+                const parsedData = yield response.json();
                 console.log(parsedData.message);
             }
             catch (err) {
-                (0, exports.cache)(errorRep);
+                cache(errorRep);
                 throw err;
             }
         }
         catch (err) {
             console.log(err);
         }
-    };
-    const checkCache = async () => {
+    });
+    const checkCache = () => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const cachedErrors = localStorage.getItem('errorCache') ? JSON.parse(localStorage.getItem('errorCache')) : [];
             localStorage.setItem('errorCache', JSON.stringify([]));
@@ -164,13 +162,13 @@ const ErrorLogger = (endpoint_url) => {
         catch (error) {
             console.log(error);
         }
-    };
-    const init = async (appId) => {
+    });
+    const init = (appId) => __awaiter(void 0, void 0, void 0, function* () {
         try {
             const AUTH_URI = url + 'auth/app';
             const requestBody = { appId };
-            const response = await (0, exports.backOff)(() => (0, exports.fetchDataInit)(AUTH_URI, requestBody));
-            const parsedData = await response.json();
+            const response = yield backOff(() => fetchDataInit(AUTH_URI, requestBody));
+            const parsedData = yield response.json();
             if (response.ok) {
                 sessionStorage.setItem('error-log-token', parsedData.token);
             }
@@ -182,7 +180,7 @@ const ErrorLogger = (endpoint_url) => {
         catch (error) {
             console.log(error);
         }
-    };
+    });
     const trace = (handler) => {
         try {
             return (e) => {
@@ -227,4 +225,3 @@ const ErrorLogger = (endpoint_url) => {
         traceAll
     };
 };
-exports.ErrorLogger = ErrorLogger;
