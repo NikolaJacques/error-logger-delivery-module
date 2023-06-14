@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "nodemon dist/app.js",
+    "start": "node dist/app.js",
+    "start-dev": "nodemon dist/app.js",
     "build": "tsc --project tsconfig.json && tsc --project tsconfig.static.json",
     "build-dev": "tsc --project tsconfig.json -w && tsc --project tsconfig.static.json -w",
     "test": "jest --config ./jest.config.json"
