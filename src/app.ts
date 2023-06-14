@@ -9,5 +9,5 @@ app.use((_, res, next) => {
 
 app.use(express.static('dist/public'));
 
-app.listen(9000);
+app.listen(process.env.PORT || 9000);
 console.log('App listening on port 9000');
