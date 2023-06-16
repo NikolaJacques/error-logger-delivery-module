@@ -160,9 +160,9 @@ export const ErrorLogger = (server_url:string) => {
 
     const init = async (url: string, appId:string='placeholder'):Promise<void> => {
         try {
-            const AUTH_URI = url + 'auth/app';
+            // endpoint is server url + 'auth/app'
             const requestBody: Partial<AuthRequest> = {appId};
-            const response = await backOff(() => fetchDataInit(AUTH_URI, requestBody));
+            const response = await backOff(() => fetchDataInit(url, requestBody));
             const parsedData: AuthResponse = await response.json();
             if (response.ok){
                 sessionStorage.setItem('error-log-token', parsedData.token!);

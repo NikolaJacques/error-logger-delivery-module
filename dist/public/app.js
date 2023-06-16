@@ -166,9 +166,9 @@ const ErrorLogger = (server_url) => {
     };
     const init = async (url, appId = 'placeholder') => {
         try {
-            const AUTH_URI = url + 'auth/app';
+            // endpoint is server url + 'auth/app'
             const requestBody = { appId };
-            const response = await (0, exports.backOff)(() => (0, exports.fetchDataInit)(AUTH_URI, requestBody));
+            const response = await (0, exports.backOff)(() => (0, exports.fetchDataInit)(url, requestBody));
             const parsedData = await response.json();
             if (response.ok) {
                 sessionStorage.setItem('error-log-token', parsedData.token);
