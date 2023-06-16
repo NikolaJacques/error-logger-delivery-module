@@ -113,13 +113,11 @@ export class ErrorReport implements ErrorLogType<number> {
         }
     };
 
-export const ErrorLogger = (endpoint_url:string) => {
-    
-    const url = endpoint_url;
+export const ErrorLogger = (server_url:string) => {
 
     const send = async (error: ErrorLogType<number> | Error):Promise<void> => {
         try {
-            const LOGS_URI = url +'logs';
+            const LOGS_URI = server_url +'logs';
             let errorRep: ErrorLogType<number>;
             if ('timestamp' in error){
                 errorRep = error;
@@ -160,7 +158,7 @@ export const ErrorLogger = (endpoint_url:string) => {
         }
     }
 
-    const init = async (appId:string):Promise<void> => {
+    const init = async (url: string, appId:string='placeholder'):Promise<void> => {
         try {
             const AUTH_URI = url + 'auth/app';
             const requestBody: Partial<AuthRequest> = {appId};

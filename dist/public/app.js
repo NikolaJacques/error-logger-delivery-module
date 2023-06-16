@@ -120,11 +120,10 @@ const fetchDataInit = async (url, requestBody) => {
     }
 };
 exports.fetchDataInit = fetchDataInit;
-const ErrorLogger = (endpoint_url) => {
-    const url = endpoint_url;
+const ErrorLogger = (server_url) => {
     const send = async (error) => {
         try {
-            const LOGS_URI = url + 'logs';
+            const LOGS_URI = server_url + 'logs';
             let errorRep;
             if ('timestamp' in error) {
                 errorRep = error;
@@ -165,7 +164,7 @@ const ErrorLogger = (endpoint_url) => {
             console.log(error);
         }
     };
-    const init = async (appId) => {
+    const init = async (url, appId = 'placeholder') => {
         try {
             const AUTH_URI = url + 'auth/app';
             const requestBody = { appId };
